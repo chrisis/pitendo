@@ -145,9 +145,9 @@ int fourscore_connected(struct config *cfg, unsigned int *data) {
 	       !(cfg->gpio[3] & data[16]) &&
 		   !(cfg->gpio[3] & data[17]) &&
 	        (cfg->gpio[3] & data[18]) &&
-		   !(cfg->gpio[3] & data[19]) &&
+	       !(cfg->gpio[3] & data[19]) &&
 	       !(cfg->gpio[3] & data[20]) &&
-		   !(cfg->gpio[3] & data[21]) &&
+	       !(cfg->gpio[3] & data[21]) &&
 	       !(cfg->gpio[3] & data[22]) &&
 	       !(cfg->gpio[3] & data[23]);
 }
