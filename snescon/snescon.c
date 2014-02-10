@@ -90,11 +90,11 @@ int multitap_connected(struct config *cfg) {
 	unsigned char signature = 0;
 	
 	// Set D0 to output
-	INP_GPIO = cfg.port2_d0;
-	OUT_GPIO = cfg.port2_d0;
+	INP_GPIO = cfg->port2_d0;
+	OUT_GPIO = cfg->port2_d0;
 	
 	// Set D0 high
-	GPIO_SET = cfg.port2_d0;
+	GPIO_SET = cfg->port2_d0;
 	
 	// Read D1 eight times
 	for(i = 0; i < 8; i++) {
@@ -102,7 +102,7 @@ int multitap_connected(struct config *cfg) {
 		GPIO_CLR = nes->gpio[0];
 		
 		// Check if D1 is low
-		if(!(cfg.port2_d1 & ~(*(gpio + 13)))) {
+		if(!(cfg->port2_d1 & ~(*(gpio + 13)))) {
 			return 0;
 		}
 		udelay(DELAY);
@@ -110,13 +110,13 @@ int multitap_connected(struct config *cfg) {
 	}
 
 	// Set D0 low
-	GPIO_CLR = cfg.port2_d0;
+	GPIO_CLR = cfg->port2_d0;
 	
 	// Read D1 eight times
 	for(i = 0; i < 8; i++) {
 		udelay(DELAY);
 		GPIO_CLR = nes->gpio[0];
-		if(cfg.port2_d1 & ~(*(gpio + 13))) {
+		if(cfg->port2_d1 & ~(*(gpio + 13))) {
 			signature += 1;
 		}
 		signature <<= 1;
@@ -125,7 +125,7 @@ int multitap_connected(struct config *cfg) {
 	}
 	
 	// Set D0 to input
-	INP_GPIO = cfg.port2_d0;
+	INP_GPIO = cfg->port2_d0;
 	
 	if(signature == 0xFF) {
 		return 0;
