@@ -29,7 +29,13 @@ const short buttons[] = { BTN_B, BTN_Y, BTN_SELECT, BTN_START, BTN_A, BTN_X, BTN
 // The order that the buttons of the SNES gamepad are stored in the byte string.
 const unsigned char bytes[] = { 0, 1, 2, 3, 8, 9, 10, 11 };
 
-// Structure that contain the configuration.
+/*
+ * Structure that contain the configuration.
+ *
+ * Structuring of the gpio and gamepad arrays:
+ * gpio: <clk, latch, port1_d0 (data1), port2_d0 (data2), port2_d1 (data4), port2_pp (data6)>
+ * pad: <pad 1, pad 2, pad 3, pad 4, pad 5>
+ */
 struct config {
 	unsigned int gpio[6];
 	struct input_dev *pad[5];
