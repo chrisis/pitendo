@@ -9,6 +9,7 @@
 #include <linux/ioport.h>
 #include <asm/io.h>
 
+// GPIO setup macros. Always use INP_GPIO(x) before using OUT_GPIO(x)
 #define INP_GPIO(g) *(gpio+((g)/10)) &= ~(7<<(((g)%10)*3))	// Set GPIO as input.
 #define OUT_GPIO(g) *(gpio+((g)/10)) |=  (1<<(((g)%10)*3))	// Set GPIO as output.
 
@@ -24,10 +25,10 @@ volatile unsigned *gpio;	///< I/O access
 const unsigned char bit_length[] = { 8, 24, 12, 24, 32 };
 
 // Buttons found on the SNES gamepad.
-const short buttons[] = { BTN_B, BTN_Y, BTN_SELECT, BTN_START, BTN_A, BTN_X, BTN_TL, BTN_TR };
+const short btn_label[] = { BTN_B, BTN_Y, BTN_SELECT, BTN_START, BTN_A, BTN_X, BTN_TL, BTN_TR };
 
 // The order that the buttons of the SNES gamepad are stored in the byte string.
-const unsigned char bytes[] = { 0, 1, 2, 3, 8, 9, 10, 11 };
+const unsigned char btn_index[] = { 0, 1, 2, 3, 8, 9, 10, 11 };
 
 /*
  * Structure that contain the configuration.
@@ -44,7 +45,7 @@ struct config {
 };
 
 /**
- * Read the data pins of all connected devices
+ * Read the data pins of all connected devices.
  *
  * @param cfg The configuration
  * @param data Array to store the read data in
@@ -80,61 +81,70 @@ void read_pads(struct config *cfg, unsigned int *data) {
 }
 
 /**
- * Check if a SNES Multitap is connected
+ * Check if a SNES Multitap is connected.
  *
  * @param cfg The configuration
  * @return 1 if a SNES Multitap is connected, otherwise 0
  */
 int multitap_connected(struct config *cfg) {
 	int i;
-	unsigned char signature = 0;
+	unsigned char byte = 0;
+	unsigned int clk, latch, d0, d1;
+	
+	// Store GPIOs in variables
+	clk = cfg->gpio[0];
+	latch = cfg->gpio[1];
+	d0 = cfg->gpio[3];
+	d1 = cfg->gpio[4];
 	
 	// Set D0 to output
-	INP_GPIO = cfg->port2_d0;
-	OUT_GPIO = cfg->port2_d0;
+	INP_GPIO(d0);
+	OUT_GPIO(d0);
 	
 	// Set D0 high
-	GPIO_SET = cfg->port2_d0;
+	GPIO_SET = d0;
 	
 	// Read D1 eight times
 	for(i = 0; i < 8; i++) {
 		udelay(DELAY);
-		GPIO_CLR = nes->gpio[0];
+		GPIO_CLR = clk;
 		
 		// Check if D1 is low
-		if(!(cfg->port2_d1 & ~(*(gpio + 13)))) {
+		if(!(d1 & ~(*(gpio + 13)))) {
 			return 0;
 		}
 		udelay(DELAY);
-		GPIO_SET = nes->gpio[0];
+		GPIO_SET = clk;
 	}
 
 	// Set D0 low
-	GPIO_CLR = cfg->port2_d0;
+	GPIO_CLR = d0;
 	
 	// Read D1 eight times
 	for(i = 0; i < 8; i++) {
 		udelay(DELAY);
-		GPIO_CLR = nes->gpio[0];
-		if(cfg->port2_d1 & ~(*(gpio + 13))) {
-			signature += 1;
+		GPIO_CLR = clk;
+		
+		// Check if D1 is high
+		if(d1 & ~(*(gpio + 13))) {
+			byte += 1;
 		}
-		signature <<= 1;
+		byte <<= 1;
 		udelay(DELAY);
-		GPIO_SET = nes->gpio[0];
+		GPIO_SET = clk;
 	}
 	
 	// Set D0 to input
-	INP_GPIO = cfg->port2_d0;
+	INP_GPIO(d0);
 	
-	if(signature == 0xFF) {
+	if(byte == 0xFF) {
 		return 0;
 	}
 	return 1;
 }
 
 /**
- * Check if a NES Four Score is connected
+ * Check if a NES Four Score is connected.
  *
  * @param cfg The configuration
  * @return 1 if a NES Four Score is connected, otherwise 0
@@ -179,7 +189,7 @@ void update_pads(struct config *cfg) {
 		g = cfg->gpio[2];
 		
 		for (j = 0; j < 8; j++) {
-			input_report_key(dev, buttons[j], g & data[bytes[j]]);
+			input_report_key(dev, btn_label[j], g & data[btn_index[j]]);
 		}
 		input_report_abs(dev, ABS_X, !(g & data[6]) - !(g & data[7]));
 		input_report_abs(dev, ABS_X, !(g & data[4]) - !(g & data[5]));
@@ -190,7 +200,7 @@ void update_pads(struct config *cfg) {
 		g = cfg->gpio[3];
 		
 		for (j = 0; j < 8; j++) {
-			input_report_key(dev, buttons[j], g & data[bytes[j]]);
+			input_report_key(dev, btn_label[j], g & data[btn_index[j]]);
 		}
 		input_report_abs(dev, ABS_X, !(g & data[6]) - !(g & data[7]));
 		input_report_abs(dev, ABS_X, !(g & data[4]) - !(g & data[5]));
@@ -201,7 +211,7 @@ void update_pads(struct config *cfg) {
 		g = cfg->gpio[4];
 		
 		for (j = 0; j < 8; j++) {
-			input_report_key(dev, buttons[j], g & data[bytes[j]]);
+			input_report_key(dev, btn_label[j], g & data[btn_index[j]]);
 		}
 		input_report_abs(dev, ABS_X, !(g & data[6]) - !(g & data[7]));
 		input_report_abs(dev, ABS_X, !(g & data[4]) - !(g & data[5]));
@@ -212,7 +222,7 @@ void update_pads(struct config *cfg) {
 		g = cfg->gpio[3];
 		
 		for (j = 0; j < 8; j++) {
-			input_report_key(dev, buttons[j], g & data[bytes[j] + 17]);
+			input_report_key(dev, btn_label[j], g & data[btn_index[j] + 17]);
 		}
 		input_report_abs(dev, ABS_X, !(g & data[23]) - !(g & data[24]));
 		input_report_abs(dev, ABS_X, !(g & data[21]) - !(g & data[22]));
@@ -223,7 +233,7 @@ void update_pads(struct config *cfg) {
 		g = cfg->gpio[4];
 		
 		for (j = 0; j < 8; j++) {
-			input_report_key(dev, buttons[j], g & data[bytes[j] + 17]);
+			input_report_key(dev, btn_label[j], g & data[btn_index[j] + 17]);
 		}
 		input_report_abs(dev, ABS_X, !(g & data[23]) - !(g & data[24]));
 		input_report_abs(dev, ABS_X, !(g & data[21]) - !(g & data[22]));
@@ -237,7 +247,7 @@ void update_pads(struct config *cfg) {
 		g = cfg->gpio[2];
 		
 		for (j = 0; j < 4; j++) {
-			input_report_key(dev, buttons[j], g & data[bytes[j]]);
+			input_report_key(dev, btn_label[j], g & data[btn_index[j]]);
 		}
 		input_report_abs(dev, ABS_X, !(g & data[6]) - !(g & data[7]));
 		input_report_abs(dev, ABS_X, !(g & data[4]) - !(g & data[5]));
@@ -248,7 +258,7 @@ void update_pads(struct config *cfg) {
 		g = cfg->gpio[3];
 		
 		for (j = 0; j < 4; j++) {
-			input_report_key(dev, buttons[j], g & data[bytes[j]]);
+			input_report_key(dev, btn_label[j], g & data[btn_index[j]]);
 		}
 		input_report_abs(dev, ABS_X, !(g & data[6]) - !(g & data[7]));
 		input_report_abs(dev, ABS_X, !(g & data[4]) - !(g & data[5]));
@@ -259,7 +269,7 @@ void update_pads(struct config *cfg) {
 		g = cfg->gpio[2];
 		
 		for (j = 0; j < 4; j++) {
-			input_report_key(dev, buttons[j], g & data[bytes[j] + 8]);
+			input_report_key(dev, btn_label[j], g & data[btn_index[j] + 8]);
 		}
 		input_report_abs(dev, ABS_X, !(g & data[14]) - !(g & data[15]));
 		input_report_abs(dev, ABS_Y, !(g & data[12]) - !(g & data[13]));
@@ -270,7 +280,7 @@ void update_pads(struct config *cfg) {
 		g = cfg->gpio[3];
 		
 		for (j = 0; j < 4; j++) {
-			input_report_key(dev, buttons[j], g & data[bytes[j] + 8]);
+			input_report_key(dev, btn_label[j], g & data[btn_index[j] + 8]);
 		}
 		input_report_abs(dev, ABS_X, !(g & data[14]) - !(g & data[15]));
 		input_report_abs(dev, ABS_Y, !(g & data[12]) - !(g & data[13]));
@@ -283,7 +293,7 @@ void update_pads(struct config *cfg) {
 		g = cfg->gpio[2];
 		
 		for (j = 0; j < 8; j++) {
-			input_report_key(dev, buttons[j], g & data[bytes[j]]);
+			input_report_key(dev, btn_label[j], g & data[btn_index[j]]);
 		}
 		input_report_abs(dev, ABS_X, !(g & data[6]) - !(g & data[7]));
 		input_report_abs(dev, ABS_X, !(g & data[4]) - !(g & data[5]));
@@ -294,7 +304,7 @@ void update_pads(struct config *cfg) {
 		g = cfg->gpio[3];
 		
 		for (j = 0; j < 8; j++) {
-			input_report_key(dev, buttons[j], g & data[bytes[j]]);
+			input_report_key(dev, btn_label[j], g & data[btn_index[j]]);
 		}
 		input_report_abs(dev, ABS_X, !(g & data[6]) - !(g & data[7]));
 		input_report_abs(dev, ABS_X, !(g & data[4]) - !(g & data[5]));
