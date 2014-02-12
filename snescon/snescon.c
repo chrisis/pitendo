@@ -52,32 +52,37 @@ struct config {
  */
 void read_pads(struct config *cfg, unsigned int *data) {
 	int i;
+	unsigned int clk, latch, pp;
+	
+	clk = cfg->gpio[0];
+	latch = cfg->gpio[1];
+	pp = cfg->gpio[5];
     
-	GPIO_SET = cfg->gpio[0] | cfg->gpio[1];
+	GPIO_SET = clk | latch;
 	udelay(DELAY * 2);
-	GPIO_CLR = cfg->gpio[1];
+	GPIO_CLR = latch;
 	
 	for(i = 0; i < BUFFER_SIZE / 2; i++) {
 		udelay(DELAY);
-		GPIO_CLR = nes->gpio[0];
+		GPIO_CLR = clk;
 		data[i] = ~(*(gpio + 13));
 		udelay(DELAY);
-		GPIO_SET = cfg->gpio[0];
+		GPIO_SET = clk;
 	}
 	
 	// Set PP low
-	GPIO_CLR = cfg->gpio[5];
+	GPIO_CLR = pp;
 	
 	for(; i < BUFFER_SIZE; i++) {
 		udelay(DELAY);
-		GPIO_CLR = nes->gpio[0];
+		GPIO_CLR = clk;
 		data[i] = ~(*(gpio + 13));
 		udelay(DELAY);
-		GPIO_SET = cfg->gpio[0];
+		GPIO_SET = clk;
 	}
 	
 	// Set PP high
-	GPIO_SET = cfg->gpio[5];
+	GPIO_SET = pp;
 }
 
 /**
@@ -103,6 +108,8 @@ int multitap_connected(struct config *cfg) {
 	
 	// Set D0 high
 	GPIO_SET = d0;
+	GPIO_SET = clk;
+	udelay(DELAY);
 	
 	// Read D1 eight times
 	for(i = 0; i < 8; i++) {
